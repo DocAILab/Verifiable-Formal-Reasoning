@@ -1,0 +1,8 @@
+numpy
+peft
+PyYAML
+torch
+tqdm
+transformers
+z3-solver
+

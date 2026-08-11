@@ -1,0 +1,2 @@
+- name: rule_grounded_process_rl
+  _target_: recipe.formally_verifiable.rule_grounded_process_rl.agent_loop.RuleGroundedProcessRLAgentLoop

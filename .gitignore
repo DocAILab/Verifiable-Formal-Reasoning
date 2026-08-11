@@ -1,0 +1,17 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+.venv/
+venv/
+.idea/
+.vscode/
+
+Data/
+Output/
+Outputs/
+checkpoints/
+adapters/
+logs/
+*.log
+

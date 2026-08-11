@@ -1,0 +1,104 @@
+method: rule_grounded_process_rl
+
+runtime:
+  nnodes: 1
+  n_gpus_per_node: 4
+  balance_batch: true
+  critic_warmup: 0
+  default_local_dir: ${oc.env:FVCODE_ROOT}/Output/RuleGroundedProcessRLVerl/qwen25_7b_verified2935_g8_ddp4_lambda3_goal1_eligible_first_balanced_e3
+  max_actor_ckpt_to_keep: 2
+  export_lora_adapter_dir: ${oc.env:FVCODE_ROOT}/Output/RuleGroundedProcessRLVerl/qwen25_7b_verified2935_g8_ddp4_lambda3_goal1_eligible_first_balanced_e3/adapter
+  logger:
+    - console
+
+model:
+  path: ${oc.env:QWEN_MODEL_PATH}
+  init_adapter_path: ${oc.env:FVCODE_ROOT}/Output/BaselinePRoSFI/qwen25_7b_format_sft_clean_traj56
+  lora_rank: 8
+  lora_alpha: 16
+  target_modules:
+    - q_proj
+    - k_proj
+    - v_proj
+    - o_proj
+    - gate_proj
+    - up_proj
+    - down_proj
+
+data:
+  raw_train_files: ${oc.env:FVCODE_ROOT}/Data/ProverQA/datasets/official_ab_fol_verified_v1/train.jsonl
+  raw_val_files: ${oc.env:FVCODE_ROOT}/Data/ProverQA/datasets/official_ab_fol_verified_v1/dev.jsonl
+  train_files: ${oc.env:FVCODE_ROOT}/Data/Verl/rule_grounded_process_rl_verified2935/train.jsonl
+  val_files: ${oc.env:FVCODE_ROOT}/Data/Verl/rule_grounded_process_rl_verified2935/dev.jsonl
+  train_batch_size: 8
+  max_prompt_length: 4096
+  max_response_length: 4096
+  exclude_uncertain_train: true
+  exclude_uncertain_val: false
+
+rollout:
+  n: 8
+  temperature: 0.8
+  top_p: 0.95
+  max_new_tokens: 4096
+  load_format: safetensors
+  max_model_len: 8192
+  max_num_batched_tokens: 16384
+  tensor_model_parallel_size: 1
+  gpu_memory_utilization: 0.65
+  enforce_eager: true
+  layered_summon: false
+  log_prob_use_dynamic_bsz: true
+
+actor:
+  learning_rate: 5.0e-6
+  ppo_epochs: 2
+  ppo_mini_batch_size: 8
+  ppo_max_token_len_per_gpu: 8192
+  use_dynamic_bsz: true
+  fsdp_param_offload: false
+  fsdp_optimizer_offload: false
+  checkpoint_save_contents:
+    - model
+    - optimizer
+    - extra
+  clip_ratio_low: 0.2
+  clip_ratio_high: 0.28
+  loss_agg_mode: seq-mean-token-sum
+
+ref:
+  log_prob_use_dynamic_bsz: true
+  fsdp_param_offload: true
+
+reward:
+  kl_beta: 0.001
+  require_summary_tag: true
+  reward_parse_failures: true
+  reward_empty_summary: true
+  enable_format_scaffold_actions: false
+  format_scaffold_reward: 1.0
+  baseline_mode: rule_ema_clipped
+  baseline_initial_value: 0.5
+  baseline_ema_beta: 0.9
+  baseline_clip_min: 0.3
+  baseline_clip_max: 0.7
+
+rule_grounded_process_rl:
+  lambda_process: 3.0
+  goal_binding_process_scale: 1.0
+  lambda_outcome: 1.0
+  negative_mass_ratio: 1.0
+  no_positive_process_weight: 0.1
+  advantage_eps: 1.0e-6
+  outcome_requires_valid_response: true
+  failed_group_process_weight: 0.25
+  retry_buffer_max_size: 4096
+  sampled_response_log_steps: 10
+
+trainer:
+  total_training_steps: 1098
+  total_epochs: 3
+  save_freq: 100
+  test_freq: 200
+  project_name: formally_verifiable
+  experiment_name: rule_grounded_process_rl_qwen25_7b_verified2935_g8_ddp4_lambda3_goal1_eligible_first_balanced_e3
