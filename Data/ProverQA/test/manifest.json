@@ -1,0 +1,65 @@
+{
+  "dataset": "expanded_heldout_ab_v1",
+  "purpose": "Additional evaluation for the verified2935 RuleGroundedProcessRL run",
+  "sources": {
+    "old_train": "Data/ProverQA/data_splits/train.jsonl",
+    "original_test": "Data/ProverQA/data_splits/test.jsonl",
+    "warmup_exclusions": "Data/warmup_format_sft/clean_trajectory_warmup56.jsonl"
+  },
+  "construction": [
+    "Remove all 56 warmup problems from the old 1,200-record train split",
+    "Add the unchanged 150-record original test split",
+    "Remove every C/Uncertain problem",
+    "Partition retained records by easy, medium, and hard difficulty"
+  ],
+  "counts": {
+    "old_train": 1200,
+    "warmup_excluded": 56,
+    "original_test": 150,
+    "expanded_pool_before_uncertain_filter": 1294,
+    "uncertain_excluded": 484,
+    "retained_ab": 810
+  },
+  "splits": {
+    "easy": {
+      "count": 280,
+      "label_counts": {
+        "A": 154,
+        "B": 126
+      }
+    },
+    "medium": {
+      "count": 249,
+      "label_counts": {
+        "A": 122,
+        "B": 127
+      }
+    },
+    "hard": {
+      "count": 281,
+      "label_counts": {
+        "A": 125,
+        "B": 156
+      }
+    }
+  },
+  "files": {
+    "easy": {
+      "path": "Data/ProverQA/datasets/expanded_heldout_ab_v1/easy.jsonl",
+      "sha256": "083700838603b7caf26e782b78635633585f5ff35f01ea1a58f7326c1d5bf88a"
+    },
+    "medium": {
+      "path": "Data/ProverQA/datasets/expanded_heldout_ab_v1/medium.jsonl",
+      "sha256": "86661154fe49633778f471b3d13fec779970c02cab22cecc00e020db9036e09f"
+    },
+    "hard": {
+      "path": "Data/ProverQA/datasets/expanded_heldout_ab_v1/hard.jsonl",
+      "sha256": "1eb6c70f3e26021886ca9d8e0865630b491fe97fa9250392fbc1844e3339a1a9"
+    },
+    "all": {
+      "path": "Data/ProverQA/datasets/expanded_heldout_ab_v1/all.jsonl",
+      "sha256": "7905d5f2cd4ea93c79c69142147b2832e3b754e99c6b7b79692492448e398195"
+    }
+  },
+  "usage_note": "This expanded set is valid for the verified2935 Ours run, but not for a fair comparison with PRoSFI models trained on the old 1,200-record train split."
+}

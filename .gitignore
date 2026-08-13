@@ -7,11 +7,10 @@ venv/
 .idea/
 .vscode/
 
-Data/
+Adapter/
 Output/
 Outputs/
 checkpoints/
 adapters/
 logs/
 *.log
-
