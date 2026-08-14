@@ -1,0 +1,6 @@
+{
+  "num_records": 56,
+  "num_epochs": 2,
+  "total_updates": 14,
+  "output_dir": "/home/zhangql24/FVCode/Outputs/BaselinePRoSFI/qwen25_7b_format_sft_clean_traj56"
+}

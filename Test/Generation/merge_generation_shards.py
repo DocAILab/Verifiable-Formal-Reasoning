@@ -20,6 +20,7 @@ from Test.Generation.metrics import (  # noqa: E402
     plot_metrics_svg,
     summarize_by_difficulty,
     summarize_records,
+    write_difficulty_summary,
     write_json,
     write_jsonl,
     write_report,
@@ -55,7 +56,7 @@ def main() -> None:
     parser.add_argument("--name", required=True)
     parser.add_argument("--split", required=True)
     parser.add_argument("--model", required=True)
-    parser.add_argument("--adapter", required=True)
+    parser.add_argument("--adapter", default=None)
     parser.add_argument("--input", required=True)
     parser.add_argument("--num_samples", type=int, default=3)
     parser.add_argument("--shard_dirs", nargs="+", required=True)
@@ -98,6 +99,7 @@ def main() -> None:
     write_jsonl(output_dir / "records" / "incremental_records.jsonl", records)
     write_jsonl(output_dir / "records.jsonl", records)
     write_json(output_dir / "summary.json", summary)
+    write_difficulty_summary(output_dir, summary)
     write_json(output_dir / "run_config.json", vars(args))
     write_report(output_dir / "report.md", summary)
     plot_metrics_svg(output_dir / "plots" / "metrics.svg", summary)

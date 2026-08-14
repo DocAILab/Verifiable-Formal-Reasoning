@@ -550,9 +550,11 @@ def summarize_records(records: list[dict[str, Any]], *, k: int = 3) -> dict[str,
 
 def summarize_by_difficulty(records: list[dict[str, Any]], *, k: int = 3) -> dict[str, Any]:
     result: dict[str, Any] = {}
-    difficulties = sorted(
-        {str(record.get("difficulty") or "unknown").strip().lower() for record in records}
-    )
+    present = {
+        str(record.get("difficulty") or "unknown").strip().lower() for record in records
+    }
+    difficulties = [name for name in ("easy", "medium", "hard") if name in present]
+    difficulties.extend(sorted(present - set(difficulties)))
     for difficulty in difficulties:
         subset = [
             record
@@ -561,6 +563,61 @@ def summarize_by_difficulty(records: list[dict[str, Any]], *, k: int = 3) -> dic
         ]
         result[difficulty] = summarize_records(subset, k=k)
     return result
+
+
+def write_difficulty_summary(output_dir: str | Path, summary: dict[str, Any]) -> None:
+    """Write the canonical Overall/Easy/Medium/Hard evaluation view."""
+    output = Path(output_dir)
+    overall = summary.get("metrics") or {}
+    by_difficulty = summary.get("by_difficulty") or {}
+    k = int(overall.get("k", 3) or 3)
+    metric_keys = (
+        f"avg_at_{k}",
+        f"pass_at_{k}",
+        "format_correct_rate",
+        "var_no_cascade_micro",
+        "rule_var_no_cascade_micro",
+        "rule_grounded_step_fraction_micro",
+        "granularity_error_mean",
+    )
+    rows: list[dict[str, Any]] = []
+    for label, metrics in (
+        ("overall", overall),
+        ("easy", by_difficulty.get("easy") or {}),
+        ("medium", by_difficulty.get("medium") or {}),
+        ("hard", by_difficulty.get("hard") or {}),
+    ):
+        rows.append(
+            {
+                "scope": label,
+                "num_problems": int(metrics.get("num_problems", 0) or 0),
+                "num_responses": int(metrics.get("num_responses", 0) or 0),
+                **{key: float(metrics.get(key, 0.0) or 0.0) for key in metric_keys},
+            }
+        )
+    write_json(
+        output / "difficulty_summary.json",
+        {"run_name": summary.get("run_name"), "input": summary.get("input"), "k": k, "rows": rows},
+    )
+    lines = [
+        f"# {summary.get('run_name')} Difficulty Summary",
+        "",
+        "| Scope | Problems | Avg@{k} | AccPass@{k} | Format | VAR(no cascade) | Rule VAR(no cascade) | Rule-grounded steps | RGD |".format(k=k),
+        "|---|---:|---:|---:|---:|---:|---:|---:|---:|",
+    ]
+    for row in rows:
+        lines.append(
+            "| {scope} | {num_problems} | {avg:.6f} | {passed:.6f} | {fmt:.6f} | "
+            "{var:.6f} | {rule_var:.6f} | {rule_steps:.6f} | {rgd:.6f} |".format(
+                scope=str(row["scope"]).title(), num_problems=row["num_problems"],
+                avg=row[f"avg_at_{k}"], passed=row[f"pass_at_{k}"],
+                fmt=row["format_correct_rate"], var=row["var_no_cascade_micro"],
+                rule_var=row["rule_var_no_cascade_micro"],
+                rule_steps=row["rule_grounded_step_fraction_micro"],
+                rgd=row["granularity_error_mean"],
+            )
+        )
+    (output / "difficulty_report.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
 def write_report(path: str | Path, summary: dict[str, Any]) -> None:

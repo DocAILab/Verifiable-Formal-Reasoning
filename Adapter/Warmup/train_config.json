@@ -1,0 +1,34 @@
+{
+  "model_name_or_path": "/data/Qwen2.5-7B-Instruct",
+  "train_file": "/home/zhangql24/FVCode/Data/warmup_format_sft/clean_trajectory_warmup56.jsonl",
+  "output_dir": "/home/zhangql24/FVCode/Outputs/BaselinePRoSFI/qwen25_7b_format_sft_clean_traj56",
+  "seed": 44,
+  "max_train_records": 56,
+  "num_epochs": 2,
+  "micro_batch_size": 1,
+  "gradient_accumulation_steps": 8,
+  "learning_rate": 2e-05,
+  "warmup_steps": 2,
+  "weight_decay": 0.0,
+  "max_grad_norm": 1.0,
+  "max_length": 2048,
+  "max_prompt_length": 1536,
+  "max_response_length": 512,
+  "dtype": "float16",
+  "device_map": "auto",
+  "gradient_checkpointing": true,
+  "lora": {
+    "r": 8,
+    "alpha": 16,
+    "dropout": 0.05,
+    "target_modules": [
+      "q_proj",
+      "k_proj",
+      "v_proj",
+      "o_proj",
+      "gate_proj",
+      "up_proj",
+      "down_proj"
+    ]
+  }
+}

@@ -17,6 +17,7 @@ from Test.Generation.metrics import (  # noqa: E402
     plot_metrics_svg,
     summarize_by_difficulty,
     summarize_records,
+    write_difficulty_summary,
     write_json,
     write_jsonl,
     write_report,
@@ -50,6 +51,7 @@ def main() -> None:
 
     write_jsonl(output_dir / "records.jsonl", records)
     write_json(output_dir / "summary.json", summary)
+    write_difficulty_summary(output_dir, summary)
     write_report(output_dir / "report.md", summary)
     plot_metrics_svg(output_dir / "plots" / "metrics.svg", summary)
     print(json.dumps(summary["metrics"], ensure_ascii=False, indent=2))
