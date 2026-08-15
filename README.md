@@ -49,5 +49,5 @@ Evaluation uses the exact training-side formal logic implementation. See
 | Method | Avg@3 ↑ | AccPass@3 ↑ | Format ↑ | Formal Verification w/o Cascade ↑ | RGD ↓ |
 |---|---:|---:|---:|---:|---:|
 | Qwen2.5-7B-Instruct (Base) | 34.74 | 56.84 | 77.54 | 68.26 | 0.841 |
-| Warmup SFT | 36.49 | 57.89 | 76.84 | 66.56 | 0.870 |
+| SFT | 36.49 | 57.89 | 76.84 | 66.56 | 0.870 |
 | **RuleGroundedProcessRL (Ours)** | **65.61** | **86.32** | **96.49** | **71.60** | **0.659** |
