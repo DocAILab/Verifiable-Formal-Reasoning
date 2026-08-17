@@ -15,6 +15,10 @@ from recipe.formally_verifiable.rule_grounded_process_rl.structured_parser impor
 )
 from recipe.formally_verifiable.rule_grounded_process_rl.structured_prompt import fol_infix_to_prefix
 from recipe.formally_verifiable.rule_grounded_process_rl.rule_checker import RuleChecker
+from recipe.formally_verifiable.rule_grounded_process_rl.reward import (
+    dependency_closure,
+    find_final_answer_step_index,
+)
 from recipe.formally_verifiable.common.verifier.z3_verifier import Z3Verifier
 
 
@@ -136,9 +140,31 @@ def verifier_safe_summary(summary: list[Any]) -> tuple[list[dict[str, Any]], lis
 
 
 def reference_step_count(problem: dict[str, Any]) -> int:
+    reference = problem.get("canonical_proof_reference")
+    if isinstance(reference, dict):
+        length = reference.get("min_proof_length")
+        if isinstance(length, int) and length >= 0:
+            return length
+
+    proof_lengths = []
+    for proof in problem.get("canonical_proofs") or []:
+        if not isinstance(proof, dict):
+            continue
+        length = proof.get("proof_length")
+        if isinstance(length, int) and length >= 0:
+            proof_lengths.append(length)
+    if proof_lengths:
+        return min(proof_lengths)
+
     reasoning = str(problem.get("reasoning", "") or "")
     conclusion_steps = re.findall(r"(?im)^\s*conclusion\s*:", reasoning)
     return max(1, len(conclusion_steps) if conclusion_steps else 1)
+
+
+def generated_proof_step_count(summary: list[Any]) -> int:
+    final_index = find_final_answer_step_index(summary)
+    closure = dependency_closure(summary, final_index)
+    return sum(1 for index in closure if index != final_index)
 
 
 def is_missing_dependency_error(error: Any) -> bool:
@@ -169,7 +195,7 @@ def var_without_cascade(
 
 
 def granularity_error(metrics: dict[str, Any], problem: dict[str, Any]) -> float:
-    generated_steps = max(1, int(metrics.get("total_steps", 0) or 0))
+    generated_steps = max(1, int(metrics.get("generated_proof_step_count", 0) or 0))
     reference_steps = max(1, reference_step_count(problem))
     return abs(math.log(generated_steps / reference_steps))
 
@@ -193,6 +219,7 @@ def evaluate_response(
         "parsed_answer": None,
         "final_answer_id": None,
         "total_steps": 0,
+        "generated_proof_step_count": 0,
         "verified_count": 0,
         "verified_step_fraction": 0.0,
         "all_steps_verified": False,
@@ -231,6 +258,7 @@ def evaluate_response(
 
     result["format_correct"] = True
     result["total_steps"] = len(summary)
+    result["generated_proof_step_count"] = generated_proof_step_count(summary)
     last_step = summary[-1]
     result["final_answer_id"] = last_step.get("id")
     parsed_answer = match_answer_to_option(
@@ -392,7 +420,7 @@ def attach_extended_metrics(record: dict[str, Any], problem: dict[str, Any]) -> 
     )
     record["extended_metrics"] = {
         "reference_step_count": reference_step_count(problem),
-        "generated_step_count": int(metrics.get("total_steps", 0) or 0),
+        "generated_step_count": int(metrics.get("generated_proof_step_count", 0) or 0),
         "granularity_error": granularity_error(metrics, problem),
         "var_no_cascade": semantic_var["value"],
         "var_no_cascade_numerator": semantic_var["numerator"],

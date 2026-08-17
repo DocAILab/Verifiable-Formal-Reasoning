@@ -111,4 +111,5 @@ def build_chat_prompt(tokenizer, problem: dict[str, Any]) -> str:
         build_messages(problem),
         tokenize=False,
         add_generation_prompt=True,
+        enable_thinking=False,
     )

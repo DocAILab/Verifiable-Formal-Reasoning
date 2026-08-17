@@ -1,0 +1,55 @@
+{
+  "run_name": "ours_step900",
+  "input": "/home/zhangql24/FVCode/Data/ProverQA/test/all.jsonl",
+  "k": 3,
+  "rows": [
+    {
+      "scope": "overall",
+      "num_problems": 810,
+      "num_responses": 2430,
+      "avg_at_3": 0.5432098765432098,
+      "pass_at_3": 0.8074074074074075,
+      "format_correct_rate": 0.9580246913580247,
+      "var_no_cascade_micro": 0.6787762906309751,
+      "rule_var_no_cascade_micro": 0.37502223803593665,
+      "rule_grounded_step_fraction_micro": 0.15554899645808737,
+      "granularity_error_mean": 0.6466276024274181
+    },
+    {
+      "scope": "easy",
+      "num_problems": 280,
+      "num_responses": 840,
+      "avg_at_3": 0.7071428571428572,
+      "pass_at_3": 0.9214285714285714,
+      "format_correct_rate": 0.9880952380952381,
+      "var_no_cascade_micro": 0.8272685398433901,
+      "rule_var_no_cascade_micro": 0.6539812646370023,
+      "rule_grounded_step_fraction_micro": 0.42150943396226415,
+      "granularity_error_mean": 0.7237665980909578
+    },
+    {
+      "scope": "medium",
+      "num_problems": 249,
+      "num_responses": 747,
+      "avg_at_3": 0.5435073627844712,
+      "pass_at_3": 0.8313253012048193,
+      "format_correct_rate": 0.9692101740294511,
+      "var_no_cascade_micro": 0.6583400483481063,
+      "rule_var_no_cascade_micro": 0.34069767441860466,
+      "rule_grounded_step_fraction_micro": 0.13336367774237598,
+      "granularity_error_mean": 0.5599915761123178
+    },
+    {
+      "scope": "hard",
+      "num_problems": 281,
+      "num_responses": 843,
+      "avg_at_3": 0.37959667852906287,
+      "pass_at_3": 0.6725978647686833,
+      "format_correct_rate": 0.9181494661921709,
+      "var_no_cascade_micro": 0.593671679197995,
+      "rule_var_no_cascade_micro": 0.18467852257181944,
+      "rule_grounded_step_fraction_micro": 0.062231100184388446,
+      "granularity_error_mean": 0.646533124728713
+    }
+  ]
+}

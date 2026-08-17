@@ -14,3 +14,5 @@ checkpoints/
 adapters/
 logs/
 *.log
+
+Codex/golden_formal_proofs*/

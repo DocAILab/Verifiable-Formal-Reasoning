@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import shutil
 import sys
@@ -50,6 +51,14 @@ def _load_records(shard_dir: Path) -> list[dict[str, Any]]:
     return load_jsonl(records_path)
 
 
+def _file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--output_dir", required=True)
@@ -81,6 +90,47 @@ def main() -> None:
                 shutil.copy2(text_file, output_dir / "responses" / "text" / text_file.name)
 
     records.sort(key=_record_sort_key)
+    input_path = Path(args.input).resolve()
+    input_rows = load_jsonl(input_path)
+    expected_problems = {
+        (
+            str(problem.get("difficulty") or "unknown").strip().lower(),
+            str(problem.get("id")),
+        )
+        for problem in input_rows
+    }
+    observed_problems = {
+        (
+            str(record.get("difficulty") or "unknown").strip().lower(),
+            str(record.get("problem_id")),
+        )
+        for record in records
+    }
+    if observed_problems != expected_problems:
+        missing = sorted(expected_problems - observed_problems)[:20]
+        extra = sorted(observed_problems - expected_problems)[:20]
+        raise RuntimeError(
+            "Shard records do not exactly cover the evaluation dataset: "
+            f"missing={missing}, extra={extra}"
+        )
+    expected_record_keys = {
+        (difficulty, problem_id, sample_index)
+        for difficulty, problem_id in expected_problems
+        for sample_index in range(args.num_samples)
+    }
+    observed_record_keys = {
+        (
+            str(record.get("difficulty") or "unknown").strip().lower(),
+            str(record.get("problem_id")),
+            int(record.get("sample_index", 0) or 0),
+        )
+        for record in records
+    }
+    if observed_record_keys != expected_record_keys or len(records) != len(expected_record_keys):
+        raise RuntimeError(
+            "Shard records do not contain exactly the requested number of samples "
+            f"per problem: expected={len(expected_record_keys)}, actual={len(records)}"
+        )
     k = min(3, args.num_samples)
     summary = {
         "run_name": args.name,
@@ -88,7 +138,9 @@ def main() -> None:
         "created_at": datetime.now(timezone.utc).isoformat(),
         "model": args.model,
         "adapter": args.adapter,
-        "input": args.input,
+        "input": str(input_path),
+        "dataset_sha256": _file_sha256(input_path),
+        "dataset_problem_count": len(expected_problems),
         "output_dir": str(output_dir),
         "split": args.split,
         "num_samples": args.num_samples,

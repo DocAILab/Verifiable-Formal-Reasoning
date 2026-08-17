@@ -22,7 +22,7 @@ for path in (FVCODE_ROOT, TRAINING_ROOT):
     if str(path) not in sys.path:
         sys.path.insert(0, str(path))
 
-DEFAULT_TEST_INPUT = FVCODE_ROOT / "Data/ProverQA/test/all.jsonl"
+DEFAULT_TEST_INPUT = FVCODE_ROOT / "Data/ProverQA/test/golden/all.jsonl"
 
 from Test.Generation.metrics import (  # noqa: E402
     append_jsonl,
@@ -78,6 +78,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--z3_timeout_ms", type=int, default=5000)
     parser.add_argument("--seed", type=int, default=20260716)
     parser.add_argument(
+        "--require_canonical_proof",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Require every evaluation problem to contain a canonical proof annotation.",
+    )
+    parser.add_argument(
         "--resume",
         action=argparse.BooleanOptionalAction,
         default=True,
@@ -130,6 +136,14 @@ def set_seed(seed: int) -> None:
     torch.manual_seed(seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
+
+
+def file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def generate_chunk(
@@ -244,6 +258,8 @@ def write_response_text(output_dir: Path, record: dict[str, Any]) -> None:
 
 def main() -> None:
     args = parse_args()
+    input_path = Path(args.input).resolve()
+    dataset_sha256 = file_sha256(input_path)
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / "records").mkdir(parents=True, exist_ok=True)
@@ -251,8 +267,40 @@ def main() -> None:
     (output_dir / "plots").mkdir(parents=True, exist_ok=True)
 
     run_name = args.name or (Path(args.adapter).name if args.adapter else Path(args.model).name)
-    problems = load_jsonl(args.input, args.max_samples)
+    problems = load_jsonl(input_path, args.max_samples)
+    if args.require_canonical_proof:
+        missing = [
+            index
+            for index, problem in enumerate(problems)
+            if not problem.get("canonical_proofs")
+            or not problem.get("canonical_proof_reference")
+        ]
+        if missing:
+            raise ValueError(
+                "Canonical-proof evaluation requires annotations for every problem; "
+                f"missing at row indices {missing[:20]}"
+            )
     existing_records = load_existing_records(output_dir) if args.resume else []
+    expected_record_keys = {
+        (
+            str(problem.get("difficulty") or "unknown").strip().lower(),
+            str(problem.get("id")),
+            sample_index,
+        )
+        for problem in problems
+        for sample_index in range(args.num_samples)
+    }
+    mismatched_records = [
+        record
+        for record in existing_records
+        if record.get("dataset_sha256") != dataset_sha256
+        or record_key(record) not in expected_record_keys
+    ]
+    if mismatched_records:
+        raise RuntimeError(
+            "Refusing to resume with records produced from another or unidentified "
+            "dataset. Use a new output directory or disable resume after clearing it."
+        )
     completed = {record_key(record) for record in existing_records}
     records = list(existing_records)
 
@@ -302,6 +350,7 @@ def main() -> None:
                     "problem_id": problem.get("id"),
                     "difficulty": problem.get("difficulty"),
                     "ground_truth": problem.get("answer"),
+                    "dataset_sha256": dataset_sha256,
                     "sample_index": sample_index,
                     "response": response,
                     "metrics": metrics,
@@ -319,7 +368,10 @@ def main() -> None:
         "created_at": datetime.now(timezone.utc).isoformat(),
         "model": args.model,
         "adapter": args.adapter,
-        "input": args.input,
+        "input": str(input_path),
+        "dataset_sha256": dataset_sha256,
+        "dataset_problem_count": len(problems),
+        "canonical_proof_required": args.require_canonical_proof,
         "output_dir": str(output_dir),
         "max_samples": args.max_samples,
         "num_samples": args.num_samples,
@@ -340,7 +392,15 @@ def main() -> None:
     write_jsonl(output_dir / "records.jsonl", records)
     write_json(output_dir / "summary.json", summary)
     write_difficulty_summary(output_dir, summary)
-    write_json(output_dir / "run_config.json", {key: value for key, value in vars(args).items()})
+    run_config = {key: value for key, value in vars(args).items()}
+    run_config.update(
+        {
+            "resolved_input": str(input_path),
+            "dataset_sha256": dataset_sha256,
+            "dataset_problem_count": len(problems),
+        }
+    )
+    write_json(output_dir / "run_config.json", run_config)
     write_report(output_dir / "report.md", summary)
     plot_metrics_svg(output_dir / "plots" / "metrics.svg", summary)
     print(json.dumps(summary["metrics"], ensure_ascii=False, indent=2))

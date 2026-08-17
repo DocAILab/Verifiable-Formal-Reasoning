@@ -12,20 +12,36 @@ OUTPUT_ROOT="${ROOT}/Output/Test/Generation/canonical_ab_681_ours0813"
 LOG_ROOT="${ROOT}/Codex/eval_logs_canonical_ab_681_ours0813"
 NUM_SAMPLES="${NUM_SAMPLES:-3}"
 MAX_NEW_TOKENS="${MAX_NEW_TOKENS:-4096}"
+EXPECTED_RECORDS="${EXPECTED_RECORDS:-2043}"
+START_STAGGER_SECONDS="${START_STAGGER_SECONDS:-45}"
 
 cd "${ROOT}"
 export PYTHONDONTWRITEBYTECODE=1
 export TOKENIZERS_PARALLELISM=false
 mkdir -p "${OUTPUT_ROOT}" "${LOG_ROOT}"
+printf '%s\n' "$$" >"${LOG_ROOT}/resume_master.pid"
 
 run_one() {
   local gpu="$1" name="$2" adapter="$3"
   local output_dir="${OUTPUT_ROOT}/${name}"
+  local records="${output_dir}/records.jsonl"
+  local count=0
+
+  if [[ -f "${records}" ]]; then
+    count="$(wc -l < "${records}")"
+  fi
+  if [[ "${count}" -eq "${EXPECTED_RECORDS}" && -s "${output_dir}/difficulty_summary.json" ]]; then
+    echo "SKIP complete gpu=${gpu} name=${name} records=${count} date=$(date -Is)"
+    return 0
+  fi
+
   [[ -s "${adapter}/adapter_model.safetensors" ]] || {
     echo "ERROR missing adapter: ${adapter}" >&2
     return 2
   }
-  echo "START gpu=${gpu} name=${name} date=$(date -Is)"
+  echo "START gpu=${gpu} name=${name} previous_records=${count} date=$(date -Is)"
+  mkdir -p "${output_dir}"
+  find "${output_dir}" -maxdepth 1 -type f -delete
   CUDA_VISIBLE_DEVICES="${gpu}" "${PYTHON_BIN}" Test/Generation/evaluate.py \
     --model "${MODEL}" \
     --adapter "${adapter}" \
@@ -52,32 +68,30 @@ worker() {
   done
 }
 
-# Priority wave: step200, step600, step900, and step1000 start first on GPUs 0-3.
 worker 0 \
-  ours_step200  "${ADAPTER_ROOT}/Ours_0813/global_step_200" \
-  ours_step100  "${ADAPTER_ROOT}/Ours_0813/global_step_100" \
-  ours_step500  "${ADAPTER_ROOT}/Ours_0813/global_step_500" \
-  >"${LOG_ROOT}/gpu0.driver.log" 2>&1 & p0=$!
+  ours_step100 "${ADAPTER_ROOT}/Ours_0813/global_step_100" \
+  ours_step500 "${ADAPTER_ROOT}/Ours_0813/global_step_500" \
+  >"${LOG_ROOT}/resume_gpu0.driver.log" 2>&1 & p0=$!
+sleep "${START_STAGGER_SECONDS}"
 worker 1 \
-  ours_step600  "${ADAPTER_ROOT}/Ours_0813/global_step_600" \
-  ours_step300  "${ADAPTER_ROOT}/Ours_0813/global_step_300" \
-  ours_step700  "${ADAPTER_ROOT}/Ours_0813/global_step_700" \
-  >"${LOG_ROOT}/gpu1.driver.log" 2>&1 & p1=$!
+  ours_step300 "${ADAPTER_ROOT}/Ours_0813/global_step_300" \
+  ours_step700 "${ADAPTER_ROOT}/Ours_0813/global_step_700" \
+  >"${LOG_ROOT}/resume_gpu1.driver.log" 2>&1 & p1=$!
+sleep "${START_STAGGER_SECONDS}"
 worker 2 \
-  ours_step900  "${ADAPTER_ROOT}/Ours_0813/global_step_900" \
-  ours_step400  "${ADAPTER_ROOT}/Ours_0813/global_step_400" \
-  ours_step800  "${ADAPTER_ROOT}/Ours_0813/global_step_800" \
-  >"${LOG_ROOT}/gpu2.driver.log" 2>&1 & p2=$!
+  ours_step400 "${ADAPTER_ROOT}/Ours_0813/global_step_400" \
+  ours_step800 "${ADAPTER_ROOT}/Ours_0813/global_step_800" \
+  >"${LOG_ROOT}/resume_gpu2.driver.log" 2>&1 & p2=$!
+sleep "${START_STAGGER_SECONDS}"
 worker 3 \
-  ours_step1000 "${ADAPTER_ROOT}/Ours_0813/global_step_1000" \
   ours_step1098 "${ADAPTER_ROOT}/Ours_0813/global_step_1098" \
-  warmup       "${ADAPTER_ROOT}/Warmup" \
-  >"${LOG_ROOT}/gpu3.driver.log" 2>&1 & p3=$!
+  warmup "${ADAPTER_ROOT}/Warmup" \
+  >"${LOG_ROOT}/resume_gpu3.driver.log" 2>&1 & p3=$!
 
-printf '%s\n' "${p0}" >"${LOG_ROOT}/gpu0.pid"
-printf '%s\n' "${p1}" >"${LOG_ROOT}/gpu1.pid"
-printf '%s\n' "${p2}" >"${LOG_ROOT}/gpu2.pid"
-printf '%s\n' "${p3}" >"${LOG_ROOT}/gpu3.pid"
+printf '%s\n' "${p0}" >"${LOG_ROOT}/resume_gpu0.pid"
+printf '%s\n' "${p1}" >"${LOG_ROOT}/resume_gpu1.pid"
+printf '%s\n' "${p2}" >"${LOG_ROOT}/resume_gpu2.pid"
+printf '%s\n' "${p3}" >"${LOG_ROOT}/resume_gpu3.pid"
 
 failed=0
 for pid in "${p0}" "${p1}" "${p2}" "${p3}"; do
