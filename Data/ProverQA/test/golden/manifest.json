@@ -1,0 +1,25 @@
+{
+  "source": "Data/ProverQA/test/all.jsonl",
+  "source_count": 810,
+  "accepted_count": 681,
+  "canonical_coverage_rate": 0.8407407407407408,
+  "recommended_evaluation_input": "Data/ProverQA/test/golden/all.jsonl",
+  "metric_scope": "all_metrics_use_the_same_canonical_subset",
+  "rejected_or_pending_count": 129,
+  "exclusion_counts": {
+    "problem_validation_failed": 12,
+    "proof_attempts_exhausted": 117
+  },
+  "by_difficulty": {
+    "easy": 261,
+    "medium": 221,
+    "hard": 199
+  },
+  "generator_model": "deepseek-v4-pro",
+  "ontology_version": "rule_checker_v1",
+  "proof_length_excludes_goal_binding": true,
+  "proof_length_uses_final_dependency_closure": true,
+  "proof_length_min": 1,
+  "proof_length_max": 12,
+  "proof_length_mean": 4.3509544787077825
+}

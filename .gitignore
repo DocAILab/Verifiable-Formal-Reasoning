@@ -14,3 +14,6 @@ checkpoints/
 adapters/
 logs/
 *.log
+
+# Local scratch scripts and intermediate artifacts.
+/Codex/

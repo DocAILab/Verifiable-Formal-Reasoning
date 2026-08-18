@@ -6,10 +6,10 @@ source "${ROOT}/.env.sh"
 
 PYTHON_BIN="${FVCODE_PYTHON}"
 MODEL="${MODEL:-/data/Qwen2.5-7B-Instruct}"
-INPUT="${ROOT}/Data/ProverQA/test/all.jsonl"
+INPUT="${ROOT}/Data/ProverQA/test/golden/all.jsonl"
 ADAPTER_ROOT="${ROOT}/Adapter"
-OUTPUT_ROOT="${ROOT}/Output/Test/Generation/expanded_ab_810_ours0813"
-LOG_ROOT="${ROOT}/Codex/eval_logs_expanded_ab_810_ours0813"
+OUTPUT_ROOT="${ROOT}/Output/Test/Generation/canonical_ab_681_ours0813"
+LOG_ROOT="${ROOT}/Codex/eval_logs_canonical_ab_681_ours0813"
 NUM_SAMPLES="${NUM_SAMPLES:-3}"
 MAX_NEW_TOKENS="${MAX_NEW_TOKENS:-4096}"
 
@@ -30,6 +30,7 @@ run_one() {
     --model "${MODEL}" \
     --adapter "${adapter}" \
     --input "${INPUT}" \
+    --require_canonical_proof \
     --output_dir "${output_dir}" \
     --name "${name}" \
     --num_samples "${NUM_SAMPLES}" \
