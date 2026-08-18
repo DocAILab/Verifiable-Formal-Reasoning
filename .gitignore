@@ -15,4 +15,5 @@ adapters/
 logs/
 *.log
 
-Codex/golden_formal_proofs*/
+# Local scratch scripts and intermediate artifacts.
+/Codex/
