@@ -593,6 +593,40 @@ def summarize_by_difficulty(records: list[dict[str, Any]], *, k: int = 3) -> dic
     return result
 
 
+def _difficulty_detail_table(by_difficulty: dict[str, Any]) -> list[str]:
+    """Render every scalar per-difficulty metric, not only the headline subset."""
+    ordered_names = [name for name in ("easy", "medium", "hard") if name in by_difficulty]
+    ordered_names.extend(sorted(set(by_difficulty) - set(ordered_names)))
+    if not ordered_names:
+        return []
+
+    metric_names: list[str] = []
+    seen: set[str] = set()
+    for difficulty in ordered_names:
+        for key, value in (by_difficulty.get(difficulty) or {}).items():
+            if key not in seen and isinstance(value, (int, float)):
+                seen.add(key)
+                metric_names.append(key)
+
+    labels = [name.title() for name in ordered_names]
+    lines = [
+        "| Metric | " + " | ".join(labels) + " |",
+        "|---|" + "---:|" * len(ordered_names),
+    ]
+    for key in metric_names:
+        values: list[str] = []
+        for difficulty in ordered_names:
+            value = (by_difficulty.get(difficulty) or {}).get(key)
+            if isinstance(value, float):
+                values.append(f"{value:.6f}")
+            elif value is None:
+                values.append("")
+            else:
+                values.append(str(value))
+        lines.append(f"| `{key}` | " + " | ".join(values) + " |")
+    return lines
+
+
 def write_difficulty_summary(output_dir: str | Path, summary: dict[str, Any]) -> None:
     """Write the canonical Overall/Easy/Medium/Hard evaluation view."""
     output = Path(output_dir)
@@ -645,6 +679,9 @@ def write_difficulty_summary(output_dir: str | Path, summary: dict[str, Any]) ->
                 rgd=row["granularity_error_mean"],
             )
         )
+    detail_lines = _difficulty_detail_table(by_difficulty)
+    if detail_lines:
+        lines.extend(["", "## Detailed Metrics", "", *detail_lines])
     (output / "difficulty_report.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
@@ -690,6 +727,9 @@ def write_report(path: str | Path, summary: dict[str, Any]) -> None:
                 steps=float(item.get("avg_total_steps", 0.0) or 0.0),
             )
         )
+    detail_lines = _difficulty_detail_table(by_difficulty)
+    if detail_lines:
+        lines.extend(["", "## Detailed Metrics by Difficulty", "", *detail_lines])
     Path(path).write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 

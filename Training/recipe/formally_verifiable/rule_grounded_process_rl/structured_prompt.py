@@ -8,11 +8,22 @@ from typing import Any
 from recipe.formally_verifiable.rule_grounded_process_rl.rule_ontology import RULE_PROMPT_GUIDANCE
 
 
-SYSTEM_PROMPT = f"""You are a math reasoner. For each problem, you will receive a set of formal premises and a multiple-choice logical reasoning question.
-
-Answer with exactly two parts:
+_OUTPUT_INSTRUCTIONS = {
+    "explicit": """Answer with exactly two parts:
 1. Put brief natural-language reasoning inside <think>...</think>.
-2. Put a JSON array of structured formal intermediate steps inside <summary>...</summary>.
+2. Put a JSON array of structured formal intermediate steps inside <summary>...</summary>.""",
+    "native": """Use the model's native thinking mode for brief natural-language reasoning.
+After native thinking ends, output exactly one JSON array of structured formal intermediate steps inside <summary>...</summary>.
+Do not add commentary between the native </think> and <summary> sections.""",
+}
+
+
+def build_system_prompt(thinking_mode: str = "explicit") -> str:
+    if thinking_mode not in _OUTPUT_INSTRUCTIONS:
+        raise ValueError(f"Unsupported thinking_mode: {thinking_mode!r}")
+    return f"""You are a math reasoner. For each problem, you will receive a set of formal premises and a multiple-choice logical reasoning question.
+
+{_OUTPUT_INSTRUCTIONS[thinking_mode]}
 
 Each JSON object in <summary> must have exactly these fields:
 - id: a unique identifier for this step.
@@ -33,6 +44,9 @@ Critical requirements:
 - The JSON array must be valid and parsable.
 - Each step must use fewer than 5 dependencies.
 - Do not output any additional text after </summary>."""
+
+
+SYSTEM_PROMPT = build_system_prompt()
 
 
 # 将数据中的中缀 FOL 运算符转换为统一前缀格式。
@@ -98,18 +112,20 @@ def build_user_prompt(problem: dict[str, Any]) -> str:
 
 
 # 构造训练和推理共用的 system/user 消息列表。
-def build_messages(problem: dict[str, Any]) -> list[dict[str, str]]:
+def build_messages(problem: dict[str, Any], thinking_mode: str = "explicit") -> list[dict[str, str]]:
     return [
-        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "system", "content": build_system_prompt(thinking_mode)},
         {"role": "user", "content": build_user_prompt(problem)},
     ]
 
 
 # 使用 tokenizer chat template 生成最终模型输入文本。
-def build_chat_prompt(tokenizer, problem: dict[str, Any]) -> str:
+def build_chat_prompt(tokenizer, problem: dict[str, Any], thinking_mode: str = "explicit") -> str:
+    if thinking_mode not in _OUTPUT_INSTRUCTIONS:
+        raise ValueError(f"Unsupported thinking_mode: {thinking_mode!r}")
     return tokenizer.apply_chat_template(
-        build_messages(problem),
+        build_messages(problem, thinking_mode=thinking_mode),
         tokenize=False,
         add_generation_prompt=True,
-        enable_thinking=False,
+        enable_thinking=thinking_mode == "native",
     )

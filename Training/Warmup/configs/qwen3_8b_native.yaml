@@ -1,0 +1,38 @@
+# Qwen3-8B warmup with the model's native thinking chat template.
+
+model_name_or_path: ${QWEN3_MODEL_PATH}
+train_file: ${FVCODE_ROOT}/Data/Warmup/clean_trajectory_warmup56.jsonl
+output_dir: ${FVCODE_ROOT}/Output/Warmup/qwen3_8b_native_clean_traj56
+thinking_mode: native
+
+seed: 44
+max_train_records: 56
+num_epochs: 2
+micro_batch_size: 1
+gradient_accumulation_steps: 8
+learning_rate: 2.0e-5
+warmup_steps: 2
+weight_decay: 0.0
+max_grad_norm: 1.0
+
+max_length: 8192
+max_prompt_length: 4096
+max_response_length: 4096
+
+dtype: bfloat16
+device_map: auto
+gradient_checkpointing: true
+
+lora:
+  r: 8
+  alpha: 16
+  dropout: 0.05
+  target_modules:
+    - q_proj
+    - k_proj
+    - v_proj
+    - o_proj
+    - gate_proj
+    - up_proj
+    - down_proj
+

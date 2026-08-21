@@ -13,7 +13,7 @@ runtime:
 
 model:
   path: ${oc.env:QWEN_MODEL_PATH}
-  init_adapter_path: ${oc.env:FVCODE_ROOT}/Output/BaselinePRoSFI/qwen25_7b_format_sft_clean_traj56
+  init_adapter_path: ${oc.env:FVCODE_ROOT}/Output/Warmup/qwen25_7b_explicit_clean_traj56
   lora_rank: 8
   lora_alpha: 16
   target_modules:

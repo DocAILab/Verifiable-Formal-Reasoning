@@ -1,0 +1,25 @@
+{
+  "input": "Data\\StepSFT\\cleaned\\rule_grounded_v2\\step_sft_clean307_trajectories.jsonl",
+  "output": "Data\\warmup_format_sft\\clean_trajectory_warmup56.jsonl",
+  "num_input_rows": 90,
+  "num_records": 56,
+  "require_final_answer": true,
+  "exclude_uncertain": true,
+  "max_records": null,
+  "seed": 42,
+  "skipped": {
+    "no_final_answer": 34
+  },
+  "difficulty": {
+    "medium": 23,
+    "hard": 7,
+    "easy": 26
+  },
+  "answers": {
+    "B": 23,
+    "A": 33
+  },
+  "avg_accepted_step_count": 4.8571,
+  "min_accepted_step_count": 2,
+  "max_accepted_step_count": 10
+}

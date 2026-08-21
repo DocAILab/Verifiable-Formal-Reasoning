@@ -78,6 +78,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--z3_timeout_ms", type=int, default=5000)
     parser.add_argument("--seed", type=int, default=20260716)
     parser.add_argument(
+        "--thinking_mode",
+        choices=["explicit", "native"],
+        default="explicit",
+        help="Structured prompt mode; use native for Qwen3 native thinking training.",
+    )
+    parser.add_argument(
         "--require_canonical_proof",
         action=argparse.BooleanOptionalAction,
         default=True,
@@ -309,7 +315,11 @@ def main() -> None:
     rule_checker = RuleChecker(timeout_ms=args.z3_timeout_ms)
 
     for problem in tqdm(problems, desc=f"Evaluate {run_name}"):
-        prompt_text = build_chat_prompt(tokenizer, problem)
+        prompt_text = build_chat_prompt(
+            tokenizer,
+            problem,
+            thinking_mode=args.thinking_mode,
+        )
         pending_sample_indices = [
             index
             for index in range(args.num_samples)
@@ -380,6 +390,7 @@ def main() -> None:
         "temperature": args.temperature,
         "top_p": args.top_p,
         "do_sample": args.do_sample,
+        "thinking_mode": args.thinking_mode,
         "z3_timeout_ms": args.z3_timeout_ms,
         "prompt_source": (
             "recipe.formally_verifiable.rule_grounded_process_rl."
