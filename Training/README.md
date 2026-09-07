@@ -19,6 +19,12 @@ the complete upstream framework.
 
 ## Install
 
+Read the [data formats and paths](../README.md#data-formats-and-paths) before
+preprocessing. The configs read raw problems from
+`Data/ProverQA/datasets/official_ab_fol_verified_v1/`; the shorter path
+`Data/ProverQA/train.jsonl` already contains VERL records and must not be converted
+again. Training commands run the recipe copied into the VERL checkout.
+
 ```bash
 git clone https://github.com/verl-project/verl.git
 git -C verl checkout 91666d99
@@ -27,4 +33,3 @@ python Training/install_into_verl.py --verl-root /path/to/verl
 
 The overlay is intentionally tied to the tested VERL revision. Review the
 integration changes before using `--force` with another revision.
-

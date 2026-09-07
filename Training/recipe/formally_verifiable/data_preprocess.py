@@ -23,10 +23,47 @@ METHOD = "rule_grounded_process_rl"
 DATA_SOURCE = "formally_verifiable/rule_grounded_process_rl"
 
 
+def validate_raw_problem(problem: Any) -> None:
+    if not isinstance(problem, dict):
+        raise ValueError("Expected a raw problem object, not a JSON scalar or array.")
+    if any(key in problem for key in ("prompt", "extra_info", "reward_model")):
+        raise ValueError(
+            "Expected a raw problem, but received an already converted VERL record. "
+            "Use Data/ProverQA/datasets/official_ab_fol_verified_v1/train.jsonl "
+            "as raw_train_files. Data/ProverQA/train.jsonl is already converted; "
+            "use it as train_files without preprocessing it again."
+        )
+    missing = [
+        key for key in ("id", "question", "nl2fol", "options", "answer", "conclusion_fol")
+        if key not in problem or problem[key] is None
+    ]
+    if missing:
+        raise ValueError(f"Raw problem is missing required fields: {missing}")
+    if not str(problem["id"]).strip():
+        raise ValueError("Raw problem id must not be empty.")
+    for key in ("question", "conclusion_fol"):
+        if not isinstance(problem[key], str) or not problem[key].strip():
+            raise ValueError(f"Raw problem {key} must be a nonempty string.")
+    premises = problem["nl2fol"]
+    if not isinstance(premises, dict) or not premises or any(
+        not isinstance(value, str) or not value.strip()
+        for pair in premises.items() for value in pair
+    ):
+        raise ValueError("Raw problem nl2fol must map nonempty text to nonempty formulas.")
+    options = problem["options"]
+    if not isinstance(options, list) or not options or any(
+        not isinstance(option, str) or not option.strip() for option in options
+    ):
+        raise ValueError("Raw problem options must be a nonempty list of strings.")
+    if problem["answer"] not in ("A", "B", "C"):
+        raise ValueError("Raw problem answer must be A, B, or C.")
+
+
 # 将单条形式化问题转换为 VERL RLHF 数据格式。
 def convert_problem_record(problem: dict[str, Any], *, method: str) -> dict[str, Any]:
     if method != METHOD:
         raise ValueError(f"Unsupported method: {method}")
+    validate_raw_problem(problem)
     prompt = build_rule_grounded_messages(problem)
     return {
         "data_source": DATA_SOURCE,
@@ -49,13 +86,17 @@ def iter_converted_records(
     exclude_uncertain: bool = True,
 ) -> Iterator[dict[str, Any]]:
     with Path(input_path).open("r", encoding="utf-8") as handle:
-        for line in handle:
+        for line_number, line in enumerate(handle, start=1):
             if not line.strip():
                 continue
-            problem = json.loads(line)
+            try:
+                problem = json.loads(line)
+                converted = convert_problem_record(problem, method=method)
+            except ValueError as exc:
+                raise ValueError(f"{input_path}:{line_number}: {exc}") from exc
             if exclude_uncertain and str(problem.get("answer", "")).strip().upper() == "C":
                 continue
-            yield convert_problem_record(problem, method=method)
+            yield converted
 
 
 # 将转换后的样本流写入 JSONL 文件。
