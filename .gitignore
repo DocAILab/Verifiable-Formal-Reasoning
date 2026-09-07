@@ -7,7 +7,9 @@ venv/
 .idea/
 .vscode/
 
-Adapter/Ours_0813
+# Local adapter weights and their archive.
+/Adapter/
+/Adapter.zip
 Output/
 Outputs/
 checkpoints/
