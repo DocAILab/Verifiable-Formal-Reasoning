@@ -13,11 +13,14 @@ from typing import Any
 
 
 FVCODE_ROOT = Path(__file__).resolve().parents[2]
-if str(FVCODE_ROOT) not in sys.path:
-    sys.path.insert(0, str(FVCODE_ROOT))
+for path in (FVCODE_ROOT, FVCODE_ROOT / "Training"):
+    if str(path) not in sys.path:
+        sys.path.insert(0, str(path))
 
 from Test.Generation.metrics import (  # noqa: E402
     load_jsonl,
+    attach_extended_metrics,
+    evaluation_dataset_protocol,
     plot_metrics_svg,
     summarize_by_difficulty,
     summarize_records,
@@ -92,6 +95,13 @@ def main() -> None:
     records.sort(key=_record_sort_key)
     input_path = Path(args.input).resolve()
     input_rows = load_jsonl(input_path)
+    # Proof requirements were enforced by each evaluator; old non-proof runs
+    # must remain mergeable. FOLIO input-safety checks still apply unconditionally.
+    protocol = evaluation_dataset_protocol(input_rows, require_canonical_proof=False)
+    problems_by_key = {
+        (str(problem.get("difficulty") or "unknown").strip().lower(), str(problem.get("id"))): problem
+        for problem in input_rows
+    }
     expected_problems = {
         (
             str(problem.get("difficulty") or "unknown").strip().lower(),
@@ -131,6 +141,9 @@ def main() -> None:
             "Shard records do not contain exactly the requested number of samples "
             f"per problem: expected={len(expected_record_keys)}, actual={len(records)}"
         )
+    for record in records:
+        key = (str(record.get("difficulty") or "unknown").strip().lower(), str(record.get("problem_id")))
+        attach_extended_metrics(record, problems_by_key[key])
     k = min(3, args.num_samples)
     summary = {
         "run_name": args.name,
@@ -141,6 +154,7 @@ def main() -> None:
         "input": str(input_path),
         "dataset_sha256": _file_sha256(input_path),
         "dataset_problem_count": len(expected_problems),
+        "dataset_protocol": protocol,
         "output_dir": str(output_dir),
         "split": args.split,
         "num_samples": args.num_samples,
