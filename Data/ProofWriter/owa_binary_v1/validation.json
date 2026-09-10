@@ -1,0 +1,60 @@
+{
+  "valid": true,
+  "z3_timeout_ms": 5000,
+  "checks": [
+    "required schema and unique ids",
+    "A/B labels and exactly two options",
+    "project FOL parser compatibility",
+    "satisfiable premise theories",
+    "Z3 entailment of every gold label",
+    "reasoning sourced from proofsWithIntermediates",
+    "proof chain ends in the gold literal"
+  ],
+  "files": {
+    "full.jsonl": {
+      "valid": true,
+      "counts": {
+        "answer_A": 27199,
+        "answer_B": 27199,
+        "difficulty_easy": 35454,
+        "difficulty_hard": 5182,
+        "difficulty_medium": 13762,
+        "proofs_from_official_intermediates": 54398,
+        "records": 54398
+      },
+      "unique_ids": 54398,
+      "unique_theories_checked": 12105,
+      "errors": []
+    },
+    "pilot_300.jsonl": {
+      "valid": true,
+      "counts": {
+        "answer_A": 150,
+        "answer_B": 150,
+        "difficulty_easy": 100,
+        "difficulty_hard": 100,
+        "difficulty_medium": 100,
+        "proofs_from_official_intermediates": 300,
+        "records": 300
+      },
+      "unique_ids": 300,
+      "unique_theories_checked": 289,
+      "errors": []
+    },
+    "benchmark_1500.jsonl": {
+      "valid": true,
+      "counts": {
+        "answer_A": 750,
+        "answer_B": 750,
+        "difficulty_easy": 500,
+        "difficulty_hard": 500,
+        "difficulty_medium": 500,
+        "proofs_from_official_intermediates": 1500,
+        "records": 1500
+      },
+      "unique_ids": 1500,
+      "unique_theories_checked": 1310,
+      "errors": []
+    }
+  }
+}

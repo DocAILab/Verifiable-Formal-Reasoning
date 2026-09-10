@@ -24,6 +24,7 @@ the already converted VERL file to the raw-data preprocessor.**
 | `Data/ProverQA/datasets/official_ab_fol_verified_v1/dev.jsonl` | 150 | Existing raw training-validation split; use as `data.raw_val_files` |
 | `Data/ProverQA/train.jsonl` | 2,935 | Already converted VERL training records; retained for compatibility, not raw input |
 | `Data/ProverQA/test/golden/all.jsonl` | 681 | Current canonical A/B test set; report overall and Easy/Medium/Hard results |
+| `Data/ProofWriter/owa_binary_v1/benchmark_1500.jsonl` | 1,500 | ProofWriter OWA A/B cross-dataset benchmark; evaluation only |
 
 The raw training set contains 1,488 A and 1,447 B answers, with no Uncertain
 examples. It is identical, in content and order, to `extra_info.problem` in the
@@ -54,6 +55,10 @@ installed YAML under the VERL checkout, which is the copy used by the commands.
 
 Preprocessing rejects already converted records and missing/empty problem fields
 with the input path and line number, rather than silently creating empty prompts.
+
+ProofWriter conversion is separate from ProverQA preprocessing. See
+`Data/ProofWriter/README.md` for Unknown exclusion, joint QLen/QDep difficulty,
+official proof extraction, Z3 filtering, reproduction, and evaluation commands.
 
 ## Training
 
