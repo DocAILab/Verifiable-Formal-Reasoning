@@ -11,8 +11,9 @@ from typing import Any
 
 
 FVCODE_ROOT = Path(__file__).resolve().parents[2]
-if str(FVCODE_ROOT) not in sys.path:
-    sys.path.insert(0, str(FVCODE_ROOT))
+for path in (FVCODE_ROOT, FVCODE_ROOT / "Training"):
+    if str(path) not in sys.path:
+        sys.path.insert(0, str(path))
 
 from Test.Generation.metrics import (  # noqa: E402
     load_jsonl,

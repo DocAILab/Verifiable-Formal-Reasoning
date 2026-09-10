@@ -1,0 +1,61 @@
+{
+  "preparation_version": "folio_verified_ab_v1",
+  "z3_version": "4.16.0",
+  "z3_timeout_ms": 5000,
+  "evaluation_split": "validation",
+  "notes": [
+    "Curated supported A/B subset, not the full official FOLIO benchmark.",
+    "No label changes, inferred proofs, guessed syntax repairs or train/validation merge.",
+    "Z3 checks formula-label consistency, not NL-to-FOL translation fidelity.",
+    "RGD is unavailable; rule scores use the unchanged, incomplete training ontology."
+  ],
+  "splits": {
+    "train": {
+      "source": "converted_train.jsonl",
+      "source_sha256": "93b7fb642ca6beaab0afee2a3c0b3246c0e58f2afc5df17de1b501eb1f0d990b",
+      "output": "train.jsonl",
+      "output_sha256": "8c14d247c4c67e046988cb8dde6d7828f547a9306d738809a9c588585a383486",
+      "source_count": 1001,
+      "source_labels": {
+        "A": 388,
+        "B": 289,
+        "C": 324
+      },
+      "accepted_count": 239,
+      "accepted_labels": {
+        "A": 146,
+        "B": 93
+      },
+      "excluded_counts": {
+        "label_not_entailed": 168,
+        "uncertain": 324,
+        "unsupported_or_malformed_formula": 268,
+        "inconsistent_premises": 2
+      },
+      "existential_problem_count": 93
+    },
+    "validation": {
+      "source": "converted_validation.jsonl",
+      "source_sha256": "563018cb64ed9b4e1a1c52a07cf310ff5a1d00cafb09b8e0f8f98fddacda5794",
+      "output": "validation.jsonl",
+      "output_sha256": "fa73cdfc01a8dc00916ef708d9b19e9d9774d54db4c78b70185b76bc9876fb95",
+      "source_count": 203,
+      "source_labels": {
+        "C": 69,
+        "A": 72,
+        "B": 62
+      },
+      "accepted_count": 51,
+      "accepted_labels": {
+        "A": 27,
+        "B": 24
+      },
+      "excluded_counts": {
+        "uncertain": 69,
+        "unsupported_or_malformed_formula": 70,
+        "label_not_entailed": 13
+      },
+      "existential_problem_count": 19
+    }
+  }
+}

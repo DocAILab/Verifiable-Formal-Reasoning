@@ -9,11 +9,12 @@ import random
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import torch
+if TYPE_CHECKING:
+    import torch
+
 from tqdm import tqdm
-from transformers import AutoModelForCausalLM, AutoTokenizer
 
 
 FVCODE_ROOT = Path(__file__).resolve().parents[2]
@@ -28,6 +29,7 @@ from Test.Generation.metrics import (  # noqa: E402
     append_jsonl,
     attach_extended_metrics,
     evaluate_response,
+    evaluation_dataset_protocol,
     load_jsonl,
     plot_metrics_svg,
     summarize_by_difficulty,
@@ -48,7 +50,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Evaluate a model with one-shot structured generation."
     )
-    parser.add_argument("--model", required=True, help="Base model path or HF id.")
+    parser.add_argument("--model", help="Base model path or HF id; not needed for --validate_only.")
     parser.add_argument(
         "--adapter",
         default=None,
@@ -59,7 +61,9 @@ def parse_args() -> argparse.Namespace:
         default=str(DEFAULT_TEST_INPUT),
         help=f"Evaluation jsonl file (default: {DEFAULT_TEST_INPUT}).",
     )
-    parser.add_argument("--output_dir", required=True)
+    parser.add_argument("--output_dir")
+    parser.add_argument("--dataset", choices=["auto", "proverqa", "folio"], default="auto")
+    parser.add_argument("--validate_only", action="store_true", help="Check dataset compatibility without loading a model.")
     parser.add_argument("--name", default=None)
     parser.add_argument("--max_samples", type=int, default=None)
     parser.add_argument("--num_samples", type=int, default=3)
@@ -86,8 +90,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--require_canonical_proof",
         action=argparse.BooleanOptionalAction,
-        default=True,
-        help="Require every evaluation problem to contain a canonical proof annotation.",
+        default=None,
+        help="Default: required for ProverQA, not for prepared FOLIO (RGD=N/A).",
     )
     parser.add_argument(
         "--resume",
@@ -95,10 +99,17 @@ def parse_args() -> argparse.Namespace:
         default=True,
         help="Skip already completed (difficulty, problem_id, sample_index) records.",
     )
-    return parser.parse_args()
+    args = parser.parse_args()
+    if not args.validate_only and (not args.model or not args.output_dir):
+        parser.error("--model and --output_dir are required unless --validate_only is used")
+    if args.num_samples <= 0 or (args.max_samples is not None and args.max_samples <= 0):
+        parser.error("--num_samples and --max_samples must be positive")
+    return args
 
 
 def resolve_dtype(dtype_name: str) -> torch.dtype:
+    import torch
+
     if not torch.cuda.is_available():
         return torch.float32
     if dtype_name == "bfloat16":
@@ -109,6 +120,8 @@ def resolve_dtype(dtype_name: str) -> torch.dtype:
 
 
 def load_model_and_tokenizer(args: argparse.Namespace):
+    from transformers import AutoModelForCausalLM, AutoTokenizer
+
     tokenizer = AutoTokenizer.from_pretrained(args.model, trust_remote_code=True)
     if tokenizer.pad_token_id is None:
         tokenizer.pad_token = tokenizer.eos_token
@@ -138,6 +151,8 @@ def stable_seed(base_seed: int, problem: dict[str, Any], sample_index: int) -> i
 
 
 def set_seed(seed: int) -> None:
+    import torch
+
     random.seed(seed)
     torch.manual_seed(seed)
     if torch.cuda.is_available():
@@ -163,6 +178,8 @@ def generate_chunk(
     top_p: float,
     do_sample: bool,
 ) -> list[str]:
+    import torch
+
     device = model_device(model)
     inputs = tokenizer([prompt_text], return_tensors="pt").to(device)
     input_length = inputs["input_ids"].shape[1]
@@ -266,6 +283,15 @@ def main() -> None:
     args = parse_args()
     input_path = Path(args.input).resolve()
     dataset_sha256 = file_sha256(input_path)
+    problems = load_jsonl(input_path, args.max_samples)
+    protocol = evaluation_dataset_protocol(
+        problems, dataset=args.dataset, require_canonical_proof=args.require_canonical_proof,
+    )
+    args.require_canonical_proof = protocol["canonical_proof_required"]
+    if args.validate_only:
+        print(json.dumps({"input": str(input_path), "dataset_sha256": dataset_sha256,
+                          "num_problems": len(problems), "dataset_protocol": protocol}, indent=2))
+        return
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / "records").mkdir(parents=True, exist_ok=True)
@@ -273,19 +299,6 @@ def main() -> None:
     (output_dir / "plots").mkdir(parents=True, exist_ok=True)
 
     run_name = args.name or (Path(args.adapter).name if args.adapter else Path(args.model).name)
-    problems = load_jsonl(input_path, args.max_samples)
-    if args.require_canonical_proof:
-        missing = [
-            index
-            for index, problem in enumerate(problems)
-            if not problem.get("canonical_proofs")
-            or not problem.get("canonical_proof_reference")
-        ]
-        if missing:
-            raise ValueError(
-                "Canonical-proof evaluation requires annotations for every problem; "
-                f"missing at row indices {missing[:20]}"
-            )
     existing_records = load_existing_records(output_dir) if args.resume else []
     expected_record_keys = {
         (
@@ -360,6 +373,8 @@ def main() -> None:
                     "problem_id": problem.get("id"),
                     "difficulty": problem.get("difficulty"),
                     "ground_truth": problem.get("answer"),
+                    "dataset": protocol["dataset"],
+                    "split": problem.get("split"),
                     "dataset_sha256": dataset_sha256,
                     "sample_index": sample_index,
                     "response": response,
@@ -382,6 +397,7 @@ def main() -> None:
         "dataset_sha256": dataset_sha256,
         "dataset_problem_count": len(problems),
         "canonical_proof_required": args.require_canonical_proof,
+        "dataset_protocol": protocol,
         "output_dir": str(output_dir),
         "max_samples": args.max_samples,
         "num_samples": args.num_samples,
@@ -409,6 +425,7 @@ def main() -> None:
             "resolved_input": str(input_path),
             "dataset_sha256": dataset_sha256,
             "dataset_problem_count": len(problems),
+            "dataset_protocol": protocol,
         }
     )
     write_json(output_dir / "run_config.json", run_config)

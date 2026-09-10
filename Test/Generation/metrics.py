@@ -139,9 +139,11 @@ def verifier_safe_summary(summary: list[Any]) -> tuple[list[dict[str, Any]], lis
     return safe_summary, schemas
 
 
-def reference_step_count(problem: dict[str, Any]) -> int:
+def reference_step_count(problem: dict[str, Any]) -> int | None:
+    if (problem.get("evaluation_metadata") or {}).get("reference_proof_available") is False:
+        return None
     reference = problem.get("canonical_proof_reference")
-    if isinstance(reference, dict):
+    if isinstance(reference, dict) and reference.get("proof_count") != 0:
         length = reference.get("min_proof_length")
         if isinstance(length, int) and length >= 0:
             return length
@@ -158,7 +160,56 @@ def reference_step_count(problem: dict[str, Any]) -> int:
 
     reasoning = str(problem.get("reasoning", "") or "")
     conclusion_steps = re.findall(r"(?im)^\s*conclusion\s*:", reasoning)
-    return max(1, len(conclusion_steps) if conclusion_steps else 1)
+    return len(conclusion_steps) if conclusion_steps else None
+
+
+def evaluation_dataset_protocol(
+    problems: list[dict[str, Any]], *, dataset: str = "auto",
+    require_canonical_proof: bool | None = None,
+) -> dict[str, Any]:
+    """Fail before loading a model when dataset annotations are unsafe/incompatible."""
+    if not problems:
+        raise ValueError("Evaluation dataset is empty")
+    folio_flags = [
+        str(problem.get("dataset", "")).lower() == "folio"
+        or str((problem.get("canonical_proof_reference") or {}).get("source", "")).lower() == "folio"
+        for problem in problems
+    ]
+    detected = "folio" if all(folio_flags) else "proverqa"
+    if any(folio_flags) and not all(folio_flags):
+        raise ValueError("Do not mix FOLIO and other evaluation datasets")
+    if dataset != "auto" and dataset != detected:
+        raise ValueError(f"Requested dataset {dataset} does not match detected {detected}")
+    if detected == "folio":
+        from Test.Generation.prepare_folio import validate_prepared_problem
+
+        for index, problem in enumerate(problems):
+            try:
+                validate_prepared_problem(problem)
+            except ValueError as exc:
+                raise ValueError(f"FOLIO row {index}, id={problem.get('id')}: {exc}") from exc
+        splits = {problem.get("split") for problem in problems}
+        if len(splits) != 1 or not splits <= {"train", "validation"}:
+            raise ValueError("FOLIO must retain one original split per evaluation run")
+    required = detected != "folio" if require_canonical_proof is None else require_canonical_proof
+    if required:
+        missing = [index for index, problem in enumerate(problems)
+                   if not problem.get("canonical_proofs") or reference_step_count(problem) is None]
+        if missing:
+            raise ValueError(f"Canonical-proof evaluation requires annotations; missing at row indices {missing[:20]}")
+    identities = [problem_group_key({"difficulty": p.get("difficulty"), "problem_id": p.get("id")}) for p in problems]
+    if len(identities) != len(set(identities)):
+        raise ValueError("Duplicate evaluation problem identities")
+    return {
+        "dataset": detected, "canonical_proof_required": required,
+        "splits": sorted({str(p.get("split") or "unspecified") for p in problems}),
+        "label_counts": {label: sum(p.get("answer") == label for p in problems) for label in ("A", "B", "C")},
+        "reference_proof_problem_count": sum(reference_step_count(p) is not None for p in problems),
+        "rgd_missing_policy": "null_without_reference_proof",
+        "difficulty_policy": "annotated_groups_only; unknown means not annotated",
+        "rule_metric_scope": "training_closed_ontology_not_complete_for_FOLIO" if detected == "folio" else "training_closed_ontology",
+        "subset": "AB_supported_label_verified" if detected == "folio" else "input_dataset",
+    }
 
 
 def generated_proof_step_count(summary: list[Any]) -> int:
@@ -194,9 +245,12 @@ def var_without_cascade(
     }
 
 
-def granularity_error(metrics: dict[str, Any], problem: dict[str, Any]) -> float:
+def granularity_error(metrics: dict[str, Any], problem: dict[str, Any]) -> float | None:
+    reference = reference_step_count(problem)
+    if reference is None:
+        return None
     generated_steps = max(1, int(metrics.get("generated_proof_step_count", 0) or 0))
-    reference_steps = max(1, reference_step_count(problem))
+    reference_steps = max(1, reference)
     return abs(math.log(generated_steps / reference_steps))
 
 
@@ -521,7 +575,9 @@ def summarize_records(records: list[dict[str, Any]], *, k: int = 3) -> dict[str,
             rule_var_denominator += int(
                 extended.get("rule_var_no_cascade_denominator", 0) or 0
             )
-            granularity_values.append(float(extended.get("granularity_error", 0.0) or 0.0))
+            granularity = extended.get("granularity_error")
+            if granularity is not None:
+                granularity_values.append(float(granularity))
 
     return {
         "num_problems": problem_count,
@@ -571,8 +627,11 @@ def summarize_records(records: list[dict[str, Any]], *, k: int = 3) -> dict[str,
         else 0.0,
         "rule_var_no_cascade_numerator": rule_var_numerator,
         "rule_var_no_cascade_denominator": rule_var_denominator,
-        "granularity_error_mean": sum(granularity_values)
-        / max(1, len(granularity_values)),
+        "granularity_error_mean": sum(granularity_values) / len(granularity_values)
+        if granularity_values else None,
+        "granularity_reference_response_count": len(granularity_values),
+        "granularity_missing_reference_response_count": response_count - len(granularity_values),
+        "granularity_reference_coverage": len(granularity_values) / max(1, response_count),
     }
 
 
@@ -604,7 +663,7 @@ def _difficulty_detail_table(by_difficulty: dict[str, Any]) -> list[str]:
     seen: set[str] = set()
     for difficulty in ordered_names:
         for key, value in (by_difficulty.get(difficulty) or {}).items():
-            if key not in seen and isinstance(value, (int, float)):
+            if key not in seen and (value is None or isinstance(value, (int, float))):
                 seen.add(key)
                 metric_names.append(key)
 
@@ -620,7 +679,7 @@ def _difficulty_detail_table(by_difficulty: dict[str, Any]) -> list[str]:
             if isinstance(value, float):
                 values.append(f"{value:.6f}")
             elif value is None:
-                values.append("")
+                values.append("N/A")
             else:
                 values.append(str(value))
         lines.append(f"| `{key}` | " + " | ".join(values) + " |")
@@ -628,7 +687,7 @@ def _difficulty_detail_table(by_difficulty: dict[str, Any]) -> list[str]:
 
 
 def write_difficulty_summary(output_dir: str | Path, summary: dict[str, Any]) -> None:
-    """Write the canonical Overall/Easy/Medium/Hard evaluation view."""
+    """Report only annotated/present groups; do not invent FOLIO difficulty labels."""
     output = Path(output_dir)
     overall = summary.get("metrics") or {}
     by_difficulty = summary.get("by_difficulty") or {}
@@ -643,18 +702,13 @@ def write_difficulty_summary(output_dir: str | Path, summary: dict[str, Any]) ->
         "granularity_error_mean",
     )
     rows: list[dict[str, Any]] = []
-    for label, metrics in (
-        ("overall", overall),
-        ("easy", by_difficulty.get("easy") or {}),
-        ("medium", by_difficulty.get("medium") or {}),
-        ("hard", by_difficulty.get("hard") or {}),
-    ):
+    for label, metrics in [("overall", overall), *by_difficulty.items()]:
         rows.append(
             {
                 "scope": label,
                 "num_problems": int(metrics.get("num_problems", 0) or 0),
                 "num_responses": int(metrics.get("num_responses", 0) or 0),
-                **{key: float(metrics.get(key, 0.0) or 0.0) for key in metric_keys},
+                **{key: metrics.get(key) for key in metric_keys},
             }
         )
     write_json(
@@ -668,17 +722,8 @@ def write_difficulty_summary(output_dir: str | Path, summary: dict[str, Any]) ->
         "|---|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
     for row in rows:
-        lines.append(
-            "| {scope} | {num_problems} | {avg:.6f} | {passed:.6f} | {fmt:.6f} | "
-            "{var:.6f} | {rule_var:.6f} | {rule_steps:.6f} | {rgd:.6f} |".format(
-                scope=str(row["scope"]).title(), num_problems=row["num_problems"],
-                avg=row[f"avg_at_{k}"], passed=row[f"pass_at_{k}"],
-                fmt=row["format_correct_rate"], var=row["var_no_cascade_micro"],
-                rule_var=row["rule_var_no_cascade_micro"],
-                rule_steps=row["rule_grounded_step_fraction_micro"],
-                rgd=row["granularity_error_mean"],
-            )
-        )
+        values = ["N/A" if row[key] is None else f"{row[key]:.6f}" for key in metric_keys]
+        lines.append(f"| {str(row['scope']).title()} | {row['num_problems']} | " + " | ".join(values) + " |")
     detail_lines = _difficulty_detail_table(by_difficulty)
     if detail_lines:
         lines.extend(["", "## Detailed Metrics", "", *detail_lines])
@@ -705,8 +750,16 @@ def write_report(path: str | Path, summary: dict[str, Any]) -> None:
         "|---|---:|",
     ]
     for key, value in metrics.items():
-        rendered = f"{value:.6f}" if isinstance(value, float) else str(value)
+        rendered = "N/A" if value is None else f"{value:.6f}" if isinstance(value, float) else str(value)
         lines.append(f"| `{key}` | {rendered} |")
+    protocol = summary.get("dataset_protocol") or {}
+    if protocol:
+        lines.extend(["", "## Dataset Scope", "", f"- Dataset: `{protocol.get('dataset')}`; subset: `{protocol.get('subset')}`.",
+                      "- RGD is N/A without a real reference proof; missing values are not scored as zero.",
+                      "- Unknown difficulty means unannotated, not Easy/Medium/Hard."])
+        if protocol.get("dataset") == "folio":
+            lines.extend(["- Curated, supported, label-verified A/B subset, not the full official FOLIO benchmark.",
+                          "- Rule-grounded metrics use the unchanged training ontology; existential/equality reasoning is not fully covered."])
     lines.extend(["", "## 分难度结果", ""])
     lines.append(
         "| 难度 | Answer | Pass | Format | All Z3 | All Rule | Rule VAR(no cascade) | Avg Steps |"
