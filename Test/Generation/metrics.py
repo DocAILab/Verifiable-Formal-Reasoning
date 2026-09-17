@@ -175,9 +175,22 @@ def evaluation_dataset_protocol(
         or str((problem.get("canonical_proof_reference") or {}).get("source", "")).lower() == "folio"
         for problem in problems
     ]
-    detected = "folio" if all(folio_flags) else "proverqa"
+    proofwriter_flags = [
+        str(problem.get("dataset", "")).lower() == "proofwriter"
+        or str((problem.get("evaluation_metadata") or {}).get("dataset", "")).lower()
+        == "proofwriter"
+        for problem in problems
+    ]
+    if all(folio_flags):
+        detected = "folio"
+    elif all(proofwriter_flags):
+        detected = "proofwriter"
+    else:
+        detected = "proverqa"
     if any(folio_flags) and not all(folio_flags):
         raise ValueError("Do not mix FOLIO and other evaluation datasets")
+    if any(proofwriter_flags) and not all(proofwriter_flags):
+        raise ValueError("Do not mix ProofWriter and other evaluation datasets")
     if dataset != "auto" and dataset != detected:
         raise ValueError(f"Requested dataset {dataset} does not match detected {detected}")
     if detected == "folio":
@@ -191,12 +204,21 @@ def evaluation_dataset_protocol(
         splits = {problem.get("split") for problem in problems}
         if len(splits) != 1 or not splits <= {"train", "validation"}:
             raise ValueError("FOLIO must retain one original split per evaluation run")
-    required = detected != "folio" if require_canonical_proof is None else require_canonical_proof
+    required = detected == "proverqa" if require_canonical_proof is None else require_canonical_proof
     if required:
         missing = [index for index, problem in enumerate(problems)
                    if not problem.get("canonical_proofs") or reference_step_count(problem) is None]
         if missing:
             raise ValueError(f"Canonical-proof evaluation requires annotations; missing at row indices {missing[:20]}")
+    if detected == "folio":
+        subset = "AB_supported_label_verified"
+        difficulty_policy = "annotated_groups_only; unknown means not annotated"
+    elif detected == "proofwriter":
+        subset = "AB_unknown_excluded_z3_verified"
+        difficulty_policy = "harder_of_QLen_and_QDep_bands"
+    else:
+        subset = "input_dataset"
+        difficulty_policy = "annotated_groups_only; unknown means not annotated"
     identities = [problem_group_key({"difficulty": p.get("difficulty"), "problem_id": p.get("id")}) for p in problems]
     if len(identities) != len(set(identities)):
         raise ValueError("Duplicate evaluation problem identities")
@@ -206,9 +228,9 @@ def evaluation_dataset_protocol(
         "label_counts": {label: sum(p.get("answer") == label for p in problems) for label in ("A", "B", "C")},
         "reference_proof_problem_count": sum(reference_step_count(p) is not None for p in problems),
         "rgd_missing_policy": "null_without_reference_proof",
-        "difficulty_policy": "annotated_groups_only; unknown means not annotated",
+        "difficulty_policy": difficulty_policy,
         "rule_metric_scope": "training_closed_ontology_not_complete_for_FOLIO" if detected == "folio" else "training_closed_ontology",
-        "subset": "AB_supported_label_verified" if detected == "folio" else "input_dataset",
+        "subset": subset,
     }
 
 

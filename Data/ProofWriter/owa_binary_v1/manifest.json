@@ -1,0 +1,117 @@
+{
+  "format_version": "proofwriter_owa_binary_v1",
+  "source": {
+    "dataset": "ProofWriter",
+    "version": "V2020.12.3",
+    "world_assumption": "OWA",
+    "split": "test",
+    "files": [
+      {
+        "path": "depth-0/meta-test.jsonl",
+        "sha256": "9e1e6e1ef079a7b5f6477a9c5f318860112ca4331659ee6e0d402d29c2e22198"
+      },
+      {
+        "path": "depth-1/meta-test.jsonl",
+        "sha256": "380bad7c88f5b02ad91b06fbaa4c47a1ea6fe02d6c7841c5bc41f5623a680bab"
+      },
+      {
+        "path": "depth-2/meta-test.jsonl",
+        "sha256": "579016c5b2aa7f4716ca82a40fe15c50bb5c42ddfa345c3fb307aeba9c01b9f7"
+      },
+      {
+        "path": "depth-3/meta-test.jsonl",
+        "sha256": "bec7afffdb4662ce61859acdf397edba12e3ae7bfad1c12ade1629a8bf3b39d6"
+      },
+      {
+        "path": "depth-5/meta-test.jsonl",
+        "sha256": "c09fad796aaf546d6fcbfc77ecf91f935ffed3c936c2b0e96f4aa57211fad842"
+      }
+    ]
+  },
+  "policy": {
+    "unknown": "exclude all source Unknown/C rows; never relabel them",
+    "options": [
+      "A) True",
+      "B) False"
+    ],
+    "labels": {
+      "A": "query derivable",
+      "B": "explicit negation derivable"
+    },
+    "fol_serialization": "project-native prefix predicate syntax",
+    "premises": "exclude theories that are not SAT in the project Z3 parser",
+    "reasoning": "first official proofsWithIntermediates chain",
+    "difficulty": {
+      "QLen": "easy <= 2; medium 3-5; hard >= 6",
+      "QDep": "easy <= 1; medium 2-3; hard >= 4",
+      "combination": "take the harder of the QLen and QDep bands"
+    }
+  },
+  "seed": 20260821,
+  "conversion_counts": {
+    "answer_A": 27199,
+    "answer_B": 27199,
+    "difficulty_easy": 35454,
+    "difficulty_hard": 5182,
+    "difficulty_medium": 13762,
+    "excluded_unknown": 45864,
+    "excluded_unsat_answer_A": 94,
+    "excluded_unsat_answer_B": 94,
+    "excluded_unsat_theory_questions": 188,
+    "source_questions": 100450,
+    "source_theories": 12143,
+    "z3_theory_sat": 12105,
+    "z3_theory_unsat": 38
+  },
+  "full_records": 54398,
+  "full_sha256": "51f8166d9dd8e6d12cedf468882863597e309bf23409609c7f2bd6598548bbe9",
+  "full_distribution": {
+    "answer_A": 27199,
+    "answer_B": 27199,
+    "difficulty_easy": 35454,
+    "difficulty_hard": 5182,
+    "difficulty_medium": 13762,
+    "records": 54398
+  },
+  "outputs": {
+    "pilot_300.jsonl": {
+      "records": 300,
+      "sha256": "a218ac026212301abac529a5c009106ad92b00b70e21b512874b86d11f56e4ac",
+      "checked_in": true,
+      "distribution": {
+        "answer_A": 150,
+        "answer_B": 150,
+        "difficulty_easy": 100,
+        "difficulty_hard": 100,
+        "difficulty_medium": 100,
+        "records": 300
+      }
+    },
+    "benchmark_1500.jsonl": {
+      "records": 1500,
+      "sha256": "d379b3fa8f127787b5b348f23ef99396fff4b47a6605ac694e7e1148180f3ec0",
+      "checked_in": true,
+      "distribution": {
+        "answer_A": 750,
+        "answer_B": 750,
+        "difficulty_easy": 500,
+        "difficulty_hard": 500,
+        "difficulty_medium": 500,
+        "records": 1500
+      }
+    },
+    "full.jsonl": {
+      "records": 54398,
+      "sha256": "51f8166d9dd8e6d12cedf468882863597e309bf23409609c7f2bd6598548bbe9",
+      "checked_in": false,
+      "distribution": {
+        "answer_A": 27199,
+        "answer_B": 27199,
+        "difficulty_easy": 35454,
+        "difficulty_hard": 5182,
+        "difficulty_medium": 13762,
+        "records": 54398
+      }
+    }
+  }
+}

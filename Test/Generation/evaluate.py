@@ -62,7 +62,11 @@ def parse_args() -> argparse.Namespace:
         help=f"Evaluation jsonl file (default: {DEFAULT_TEST_INPUT}).",
     )
     parser.add_argument("--output_dir")
-    parser.add_argument("--dataset", choices=["auto", "proverqa", "folio"], default="auto")
+    parser.add_argument(
+        "--dataset",
+        choices=["auto", "proverqa", "proofwriter", "folio"],
+        default="auto",
+    )
     parser.add_argument("--validate_only", action="store_true", help="Check dataset compatibility without loading a model.")
     parser.add_argument("--name", default=None)
     parser.add_argument("--max_samples", type=int, default=None)
@@ -91,7 +95,7 @@ def parse_args() -> argparse.Namespace:
         "--require_canonical_proof",
         action=argparse.BooleanOptionalAction,
         default=None,
-        help="Default: required for ProverQA, not for prepared FOLIO (RGD=N/A).",
+        help="Default: required for ProverQA, not for ProofWriter or prepared FOLIO.",
     )
     parser.add_argument(
         "--resume",
